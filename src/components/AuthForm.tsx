@@ -1,5 +1,11 @@
+// authform.tsx
 import React, { useState } from 'react';
-import { apiClient } from '../utils/apiClient';
+import { User } from '../types';
+import { storage } from '../utils/storage';
+
+interface AuthFormProps {
+  onSuccess: (user: User) => void;
+}
 
 export function AuthForm({ onSuccess }: AuthFormProps) {
   const [isLogin, setIsLogin] = useState(true);
@@ -10,18 +16,24 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-  
-    try {
-      if (isLogin) {
-        const { data: user } = await apiClient.post('/users/authenticate', { email, password });
+
+    if (isLogin) {
+      const user = await storage.authenticate(email, password);
+      if (user) {
         onSuccess(user);
       } else {
-        const { data: user } = await apiClient.post('/users', { email, password, role: 'patient' });
-        const { data: patient } = await apiClient.get(`/patients?userId=${user.id}`);
-        onSuccess(user);
+        setError('Invalid credentials');
       }
-    } catch (err) {
-      setError('An error occurred');
+    } else {
+      // Register as patient
+      const newUser: User = {
+        id: crypto.randomUUID(),
+        email,
+        password,
+        role: 'patient',
+      };
+      storage.addUser(newUser);
+      onSuccess(newUser);
     }
   };
 
@@ -81,5 +93,4 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
       </form>
     </div>
   );
-
 }
